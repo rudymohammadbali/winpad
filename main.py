@@ -14,6 +14,8 @@ from assets.settings_handler import SettingsHandler
 from assets.title_menu import CTkMenuBar, CustomDropdownMenu
 
 CURRENT_PATH = os.path.dirname(os.path.realpath(__file__))
+LOGO_PATH = f"{CURRENT_PATH}\\assets\\icons\\logo.ico"
+
 icons = {
     "close": ctk.CTkImage(light_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\up_black.png"),
                           dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\up_white.png"), size=(20, 20)),
@@ -25,9 +27,21 @@ icons = {
                          dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\font_white.png"), size=(20, 20)),
     "close_window": ctk.CTkImage(light_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\close_black.png"),
                                  dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\close_white.png"),
-                                 size=(20, 20))
+                                 size=(20, 20)),
+
+    "undo": ctk.CTkImage(light_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\undo_black.png"),
+                         dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\undo_white.png"), size=(15, 15)),
+    "cut": ctk.CTkImage(light_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\cut_black.png"),
+                        dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\cut_white.png"), size=(15, 15)),
+    "copy": ctk.CTkImage(light_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\copy_black.png"),
+                         dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\copy_white.png"), size=(15, 15)),
+    "paste": ctk.CTkImage(light_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\paste_black.png"),
+                          dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\paste_white.png"), size=(15, 15)),
+    "delete": ctk.CTkImage(light_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\delete_black.png"),
+                           dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\delete_white.png"), size=(15, 15)),
+    "select": ctk.CTkImage(light_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\select_black.png"),
+                           dark_image=Image.open(f"{CURRENT_PATH}\\assets\\icons\\select_white.png"), size=(15, 15))
 }
-LOGO_PATH = f"{CURRENT_PATH}\\assets\\icons\\logo.ico"
 
 DROPDOWN = {
     "x": 0,
@@ -36,6 +50,14 @@ DROPDOWN = {
     "frame_corner_radius": 5,
     "hover": False,
     "justify": "left"
+}
+BTN_OPTION = {
+    "compound": "left",
+    "anchor": "w",
+    "fg_color": "transparent",
+    "text_color": ("black", "white"),
+    "corner_radius": 5,
+    "hover_color": ("gray65", "gray28")
 }
 
 ctk.set_default_color_theme(f"{CURRENT_PATH}\\assets\\theme.json")
@@ -187,8 +209,80 @@ class CTkDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+class PopupMenu(ctk.CTkToplevel):
+    def __init__(self,
+                 master=None,
+                 corner_radius=8,
+                 border_width=0,
+                 **kwargs):
+
+        super().__init__(takefocus=1)
+
+        self.y = None
+        self.x = None
+        self.focus()
+        self.master_window = master
+        self.corner = corner_radius
+        self.border = border_width
+        self.hidden = True
+
+        if sys.platform.startswith("win"):
+            self.after(100, lambda: self.overrideredirect(True))
+            self.transparent_color = self._apply_appearance_mode(self._fg_color)
+            self.attributes("-transparentcolor", self.transparent_color)
+        elif sys.platform.startswith("darwin"):
+            self.overrideredirect(True)
+            self.transparent_color = 'systemTransparent'
+            self.attributes("-transparent", True)
+        else:
+            self.attributes("-type", "splash")
+            self.transparent_color = '#000001'
+            self.corner = 0
+            self.withdraw()
+
+        self.frame = ctk.CTkFrame(self, bg_color=self.transparent_color, corner_radius=self.corner,
+                                  border_width=self.border, **kwargs)
+        self.frame.pack(expand=True, fill="both")
+
+        self.master.bind("<KeyPress>", lambda event: self._withdraw(), add="+")
+        self.bind("<KeyPress>", lambda event: self._withdraw())
+        self.master.bind("<Configure>", lambda event: self._withdraw())
+
+        self.resizable(width=False, height=False)
+        self.transient(self.master_window)
+
+        self.update_idletasks()
+
+        self.withdraw()
+
+    def _withdraw(self):
+        if not self.hidden:
+            self.withdraw()
+            self.hidden = True
+
+    def popup(self, x=None, y=None):
+        self.x = x
+        self.y = y
+        self.deiconify()
+        self.focus()
+        self.geometry('+{}+{}'.format(self.x, self.y))
+        self.hidden = False
+
+
 def open_help():
     webbrowser.open("https://github.com/iamironman0/winpad/discussions/categories/q-a")
+
+
+def new_window():
+    window = WinPad()
+    window.mainloop()
+
+
+def do_popup(event, frame):
+    try:
+        frame.popup(event.x_root, event.y_root)
+    finally:
+        frame.grab_release()
 
 
 class WinPad(ctk.CTk):
@@ -234,11 +328,12 @@ class WinPad(ctk.CTk):
 
         self.grid_rowconfigure(1, weight=1)
 
-        self.title_menu()
-        self.text_editor()
-        self.status_bar()
+        self.title_menu_ui()
+        self.text_editor_ui()
+        self.status_bar_ui()
 
-    def title_menu(self):
+    #  UI
+    def title_menu_ui(self):
         menu = CTkMenuBar(self, width=50, padx=20, pady=5, border_width=0, bg_color=("gray90", "gray13"))
 
         button_1 = menu.add_cascade("File", anchor="center", corner_radius=3)
@@ -246,15 +341,15 @@ class WinPad(ctk.CTk):
         button_3 = menu.add_cascade("View", anchor="center", corner_radius=3)
         menu.add_cascade("Settings", command=self.settings_ui, anchor="center", corner_radius=3)
 
-        dropdown1 = CustomDropdownMenu(widget=button_1, border_width=0, corner_radius=8)
-        dropdown1.add_option(option="New Window", command=self.new_window)
+        dropdown1 = CustomDropdownMenu(widget=button_1, border_width=0, corner_radius=5)
+        dropdown1.add_option(option="New Window", command=new_window)
         dropdown1.add_option(option="Open", command=self.open_file)
         dropdown1.add_option(option="Save", command=self.save)
         dropdown1.add_option(option="Save as", command=self.save_as)
         dropdown1.add_separator()
         dropdown1.add_option(option="Exit", command=self.destroy_window)
 
-        dropdown2 = CustomDropdownMenu(widget=button_2, border_width=0, corner_radius=8)
+        dropdown2 = CustomDropdownMenu(widget=button_2, border_width=0, corner_radius=5)
         dropdown2.add_option(option="Undo", command=self.undo)
         dropdown2.add_option(option="Cut", command=self.cut)
         dropdown2.add_option(option="Copy", command=self.copy)
@@ -268,14 +363,14 @@ class WinPad(ctk.CTk):
         dropdown2.add_option(option="Select all", command=self.select_all)
         dropdown2.add_option(option="Time/Date", command=self.insert_date)
 
-        dropdown3 = CustomDropdownMenu(widget=button_3, border_width=0, corner_radius=8)
+        dropdown3 = CustomDropdownMenu(widget=button_3, border_width=0, corner_radius=5)
         zoom_submenu = dropdown3.add_submenu("Zoom                                  >")
         zoom_submenu.add_option("Zoom in", command=self.zoom_in)
         zoom_submenu.add_option("Zoom out", command=self.zoom_out)
         zoom_submenu.add_option("Restore default zoom", command=self.zoom_reset)
         dropdown3.add_option(option="Status bar", command=self.toggle_status_bar)
 
-    def text_editor(self):
+    def text_editor_ui(self):
         loaded_settings = self.settings_handler.load_settings()
         font = (loaded_settings["family"], int(loaded_settings["size"]), loaded_settings["style"])
         word_wrap = loaded_settings.get("word_wrap", "word")
@@ -284,6 +379,33 @@ class WinPad(ctk.CTk):
         self.textbox.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
         self.textbox.bind('<KeyRelease>', self.update_status)
+
+        popup_menu = PopupMenu(self)
+        self.textbox.bind("<Button-3>", lambda event: do_popup(event, popup_menu), add="+")
+
+        undo_btn = ctk.CTkButton(popup_menu.frame, text="Undo", command=self.undo,
+                                 image=icons["undo"], **BTN_OPTION)
+        undo_btn.pack(expand=True, fill="x", padx=10, pady=(10, 0))
+
+        cut_btn = ctk.CTkButton(popup_menu.frame, text="Cut",
+                                command=self.cut, image=icons["cut"], **BTN_OPTION)
+        cut_btn.pack(expand=True, fill="x", padx=10, pady=(5, 0))
+
+        copy_btn = ctk.CTkButton(popup_menu.frame, text="Copy",
+                                 command=self.copy, image=icons["copy"], **BTN_OPTION)
+        copy_btn.pack(expand=True, fill="x", padx=10, pady=(5, 10))
+
+        paste_btn = ctk.CTkButton(popup_menu.frame, text="Paste",
+                                  command=self.paste, image=icons["paste"], **BTN_OPTION)
+        paste_btn.pack(expand=True, fill="x", padx=10, pady=(5, 10))
+
+        delete_btn = ctk.CTkButton(popup_menu.frame, text="Delete",
+                                   command=self.delete, image=icons["delete"], **BTN_OPTION)
+        delete_btn.pack(expand=True, fill="x", padx=10, pady=(5, 10))
+
+        select_btn = ctk.CTkButton(popup_menu.frame, text="Select all",
+                                   command=self.select_all, image=icons["select"], **BTN_OPTION)
+        select_btn.pack(expand=True, fill="x", padx=10, pady=(5, 10))
 
     def settings_ui(self):
         try:
@@ -343,7 +465,7 @@ class WinPad(ctk.CTk):
 
         about_label = ctk.CTkLabel(self.settings_frame, text="About this app", font=("", 16, "bold"))
         about_label.grid(row=6, column=0, sticky="w", padx=40, pady=(20, 2))
-        version_label = ctk.CTkLabel(self.settings_frame, text="WinPad 23.12.09", font=("", 12), height=2)
+        version_label = ctk.CTkLabel(self.settings_frame, text="WinPad 20231216", font=("", 12), height=2)
         version_label.grid(row=7, column=0, sticky="w", padx=40, pady=(2, 0))
         copyright_label = ctk.CTkLabel(self.settings_frame, text="@ 2023 iamironman", font=("", 12), height=2)
         copyright_label.grid(row=8, column=0, sticky="w", padx=40, pady=(0, 20))
@@ -351,8 +473,39 @@ class WinPad(ctk.CTk):
         help_btn = ctk.CTkButton(self.settings_frame, text="Help", corner_radius=3, command=open_help)
         help_btn.grid(row=9, column=0, sticky="w", padx=40, pady=0)
 
+    def status_bar_ui(self):
+        self.status_frame = ctk.CTkFrame(self, height=50, corner_radius=0, border_width=0)
+        self.status_frame.grid(row=2, column=0, padx=0, pady=0, sticky="ew")
+        self.status_frame.grid_columnconfigure(0, weight=1)
+
+        line, column = self.textbox.index("insert").split(".")
+        self.ln_col_label = ctk.CTkLabel(self.status_frame, text="Ln {}, Col {}".format(line, column), font=("", 11))
+        self.ln_col_label.grid(row=0, column=0, padx=20, pady=0, sticky="w")
+
+        font_size = self.textbox.cget("font")[1]
+        zoom_percent = int((int(font_size) / 14) * 100)
+        zoom_label = ctk.CTkLabel(self.status_frame, text=f"Zoom: {zoom_percent}%", font=("", 11))
+        zoom_label.grid(row=0, column=1, padx=20, pady=0, sticky="ew")
+
+        encoding_label = ctk.CTkLabel(self.status_frame, text="CRLF", font=("", 11))
+        encoding_label.grid(row=0, column=3, padx=20, pady=0, sticky="ew")
+
+        encoding_label = ctk.CTkLabel(self.status_frame, text="UTF-8", font=("", 11))
+        encoding_label.grid(row=0, column=4, padx=20, pady=0, sticky="e")
+
+        self.status_bar_shown = True
+
+    def find_window(self):
+        CTkDialog(master=self, title="Find text", option="find")
+
+    def replace_window(self):
+        CTkDialog(master=self, title="Replace text", option="replace")
+
+    def goto_window(self):
+        CTkDialog(master=self, title="Go to Line", option="goto")
+
+    #  Updater
     def update_font_view(self):
-        loaded_settings = self.settings_handler.load_settings()
         if self.font_update_btn.cget("corner_radius") == 3:
             self.font_update_btn.configure(image=icons["close"])
             self.font_update_btn.configure(corner_radius=4)
@@ -366,7 +519,7 @@ class WinPad(ctk.CTk):
             CTkScrollableDropdownFrame(self.family_option, values=self.fonts, **DROPDOWN,
                                        command=lambda new_value=self.family_option: self.update_callback(
                                            key_name="family", value=f"{new_value}"))
-            self.family_option.set(loaded_settings["family"].capitalize())
+            self.family_option.set(self.loaded_settings["family"].capitalize())
 
             label2 = ctk.CTkLabel(self.font_frame3, text="Style", font=("", 13))
             label2.grid(row=1, column=0, sticky="w", padx=40, pady=10)
@@ -375,7 +528,7 @@ class WinPad(ctk.CTk):
             CTkScrollableDropdownFrame(self.style_option, values=self.styles, **DROPDOWN,
                                        command=lambda new_value=self.style_option: self.update_callback(
                                            key_name="style", value=f"{new_value}"))
-            self.style_option.set(loaded_settings["style"].capitalize())
+            self.style_option.set(self.loaded_settings["style"].capitalize())
 
             label3 = ctk.CTkLabel(self.font_frame3, text="Size", font=("", 13))
             label3.grid(row=2, column=0, sticky="w", padx=40, pady=(10, 20))
@@ -384,7 +537,7 @@ class WinPad(ctk.CTk):
             CTkScrollableDropdownFrame(self.size_option, values=self.sizes, **DROPDOWN,
                                        command=lambda new_value=self.size_option: self.update_callback(
                                            key_name="size", value=f"{new_value}"))
-            self.size_option.set(loaded_settings["size"])
+            self.size_option.set(self.loaded_settings["size"])
 
             label4 = ctk.CTkLabel(self.font_frame3, text="Word Wrap", font=("", 13))
             label4.grid(row=3, column=0, sticky="w", padx=40, pady=(10, 20))
@@ -392,7 +545,7 @@ class WinPad(ctk.CTk):
                                          variable=self.check_var,
                                          command=self.update_check)
             wrap_check.grid(row=3, column=1, sticky="e", padx=40, pady=(10, 20))
-            if loaded_settings["word_wrap"] == "word":
+            if self.loaded_settings["word_wrap"] == "word":
                 wrap_check.select()
             else:
                 wrap_check.deselect()
@@ -405,6 +558,29 @@ class WinPad(ctk.CTk):
             self.font_frame3.grid_forget()
             self.font_update_btn.configure(image=icons["open"])
             self.font_update_btn.configure(corner_radius=3)
+
+    def update_theme_view(self):
+        if self.theme_update_btn.cget("corner_radius") == 3:
+            self.theme_update_btn.configure(image=icons["close"])
+            self.theme_update_btn.configure(corner_radius=4)
+            self.theme_frame3.grid(row=3, column=0, sticky="nsew", padx=20, pady=(0, 10), columnspan=2)
+
+            radiobutton_1 = ctk.CTkRadioButton(self.theme_frame3, text="Light", value="light", variable=self.radio_var,
+                                               command=self.update_theme)
+            radiobutton_1.grid(row=0, column=0, sticky="w", padx=40, pady=10)
+
+            radiobutton_2 = ctk.CTkRadioButton(self.theme_frame3, text="Dark", value="dark", variable=self.radio_var,
+                                               command=self.update_theme)
+            radiobutton_2.grid(row=1, column=0, sticky="w", padx=40, pady=10)
+
+            radiobutton_3 = ctk.CTkRadioButton(self.theme_frame3, text="Use system setting", value="system",
+                                               variable=self.radio_var,
+                                               command=self.update_theme)
+            radiobutton_3.grid(row=2, column=0, sticky="w", padx=40, pady=10)
+        else:
+            self.theme_frame3.grid_forget()
+            self.theme_update_btn.configure(image=icons["open"])
+            self.theme_update_btn.configure(corner_radius=3)
 
     def update_check(self):
         new_value = self.check_var.get()
@@ -434,41 +610,12 @@ class WinPad(ctk.CTk):
         ctk.set_appearance_mode(get_theme)
         self.settings_handler.save_settings({"theme": get_theme})
 
-    def update_theme_view(self):
-        if self.theme_update_btn.cget("corner_radius") == 3:
-            self.theme_update_btn.configure(image=icons["close"])
-            self.theme_update_btn.configure(corner_radius=4)
-            self.theme_frame3.grid(row=3, column=0, sticky="nsew", padx=20, pady=(0, 10), columnspan=2)
-
-            radiobutton_1 = ctk.CTkRadioButton(self.theme_frame3, text="Light", value="light", variable=self.radio_var,
-                                               command=self.update_theme)
-            radiobutton_1.grid(row=0, column=0, sticky="w", padx=40, pady=10)
-
-            radiobutton_2 = ctk.CTkRadioButton(self.theme_frame3, text="Dark", value="dark", variable=self.radio_var,
-                                               command=self.update_theme)
-            radiobutton_2.grid(row=1, column=0, sticky="w", padx=40, pady=10)
-
-            radiobutton_3 = ctk.CTkRadioButton(self.theme_frame3, text="Use system setting", value="system",
-                                               variable=self.radio_var,
-                                               command=self.update_theme)
-            radiobutton_3.grid(row=2, column=0, sticky="w", padx=40, pady=10)
-        else:
-            self.theme_frame3.grid_forget()
-            self.theme_update_btn.configure(image=icons["open"])
-            self.theme_update_btn.configure(corner_radius=3)
-
-    def center_window(self, width, height):
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        window_height = int((screen_width / 2) - (width / 2))
-        window_width = int((screen_height / 2) - (height / 2))
-        self.geometry(f"{width}x{height}+{window_height}+{window_width}")
-
     def update_status(self, event=None):
         if self.status_bar_shown:
             line, column = self.textbox.index("insert").split(".")
             self.ln_col_label.configure(text="Ln {}, Col {}".format(line, column))
 
+    #  Functions
     def toggle_status_bar(self):
         if self.status_bar_shown:
             widgets = self.status_frame.winfo_children()
@@ -477,29 +624,7 @@ class WinPad(ctk.CTk):
             self.status_frame.destroy()
             self.status_bar_shown = False
         else:
-            self.status_bar()
-
-    def status_bar(self):
-        self.status_frame = ctk.CTkFrame(self, height=50, corner_radius=0, border_width=0)
-        self.status_frame.grid(row=2, column=0, padx=0, pady=0, sticky="ew")
-        self.status_frame.grid_columnconfigure(0, weight=1)
-
-        line, column = self.textbox.index("insert").split(".")
-        self.ln_col_label = ctk.CTkLabel(self.status_frame, text="Ln {}, Col {}".format(line, column), font=("", 11))
-        self.ln_col_label.grid(row=0, column=0, padx=20, pady=0, sticky="w")
-
-        font_size = self.textbox.cget("font")[1]
-        zoom_percent = int((int(font_size) / 14) * 100)
-        zoom_label = ctk.CTkLabel(self.status_frame, text=f"Zoom: {zoom_percent}%", font=("", 11))
-        zoom_label.grid(row=0, column=1, padx=20, pady=0, sticky="ew")
-
-        encoding_label = ctk.CTkLabel(self.status_frame, text="CRLF", font=("", 11))
-        encoding_label.grid(row=0, column=3, padx=20, pady=0, sticky="ew")
-
-        encoding_label = ctk.CTkLabel(self.status_frame, text="UTF-8", font=("", 11))
-        encoding_label.grid(row=0, column=4, padx=20, pady=0, sticky="e")
-
-        self.status_bar_shown = True
+            self.status_bar_ui()
 
     def zoom_in(self):
         current_font = self.textbox.cget("font")
@@ -516,9 +641,6 @@ class WinPad(ctk.CTk):
         loaded_settings = self.settings_handler.load_settings()
         self.textbox.configure(font=(loaded_settings["family"], int(loaded_settings["size"]), loaded_settings["style"]))
 
-    def find_window(self):
-        CTkDialog(master=self, title="Find text", option="find")
-
     def find_func(self, text):
         self.textbox.tag_remove('sel', '1.0', "end")
         if text:
@@ -532,22 +654,11 @@ class WinPad(ctk.CTk):
                 idx = last_idx
                 self.textbox.focus_set()
 
-    def replace_window(self):
-        CTkDialog(master=self, title="Replace text", option="replace")
-
     def replace_func(self, old, new):
         text_content = self.textbox.get("1.0", "end")
         text_content = re.sub(r'\b' + old + r'\b', new, text_content)
         self.textbox.delete("1.0", "end")
         self.textbox.insert("1.0", text_content)
-
-    def insert_date(self):
-        now = datetime.datetime.now()
-        now = now.replace(microsecond=0)
-        self.textbox.insert("end", f" {now}")
-
-    def goto_window(self):
-        CTkDialog(master=self, title="Go to Line", option="goto")
 
     def goto_func(self, line_number):
         try:
@@ -556,6 +667,11 @@ class WinPad(ctk.CTk):
             self.textbox.focus_set()
         except tkinter.TclError:
             pass
+
+    def insert_date(self):
+        now = datetime.datetime.now()
+        now = now.replace(microsecond=0)
+        self.textbox.insert("end", f" {now}")
 
     def select_all(self):
         self.textbox.tag_add("sel", "0.0", "end")
@@ -612,19 +728,21 @@ class WinPad(ctk.CTk):
 
             self.textbox.insert("0.0", text)
 
-    @staticmethod
-    def new_window():
-        window = WinPad()
-        window.mainloop()
-
     def destroy_settings(self):
         self.settings_frame.destroy()
-        self.text_editor()
+        self.text_editor_ui()
         if self.status_bar_shown:
-            self.status_bar()
+            self.status_bar_ui()
 
     def destroy_window(self):
         self.destroy()
+
+    def center_window(self, width, height):
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        window_height = int((screen_width / 2) - (width / 2))
+        window_width = int((screen_height / 2) - (height / 2))
+        self.geometry(f"{width}x{height}+{window_height}+{window_width}")
 
 
 if __name__ == "__main__":
