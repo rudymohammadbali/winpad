@@ -244,9 +244,9 @@ class PopupMenu(ctk.CTkToplevel):
                                   border_width=self.border, **kwargs)
         self.frame.pack(expand=True, fill="both")
 
-        self.master.bind("<KeyPress>", lambda event: self._withdraw(), add="+")
-        self.bind("<KeyPress>", lambda event: self._withdraw())
-        self.master.bind("<Configure>", lambda event: self._withdraw())
+        self.master.bind("<ButtonPress>", lambda event: self._withdraw_off(), add="+")
+        self.bind("<Button-1>", lambda event: self._withdraw(), add="+")
+        self.master.bind("<Configure>", lambda event: self._withdraw(), add="+")
 
         self.resizable(width=False, height=False)
         self.transient(self.master_window)
@@ -256,9 +256,13 @@ class PopupMenu(ctk.CTkToplevel):
         self.withdraw()
 
     def _withdraw(self):
-        if not self.hidden:
+        self.withdraw()
+        self.hidden = True
+
+    def _withdraw_off(self):
+        if self.hidden:
             self.withdraw()
-            self.hidden = True
+        self.hidden = True
 
     def popup(self, x=None, y=None):
         self.x = x
@@ -473,6 +477,24 @@ class WinPad(ctk.CTk):
         help_btn = ctk.CTkButton(self.settings_frame, text="Help", corner_radius=3, command=open_help)
         help_btn.grid(row=9, column=0, sticky="w", padx=40, pady=0)
 
+        self.family_option = ctk.CTkOptionMenu(self.font_frame3, width=200)
+        CTkScrollableDropdownFrame(self.family_option, values=self.fonts, **DROPDOWN,
+                                   command=lambda new_value=self.family_option: self.update_callback(
+                                       key_name="family", value=f"{new_value}"))
+        self.family_option.set(self.loaded_settings["family"].capitalize())
+
+        self.style_option = ctk.CTkOptionMenu(self.font_frame3, width=200)
+        CTkScrollableDropdownFrame(self.style_option, values=self.styles, **DROPDOWN,
+                                   command=lambda new_value=self.style_option: self.update_callback(
+                                       key_name="style", value=f"{new_value}"))
+        self.style_option.set(self.loaded_settings["style"].capitalize())
+
+        self.size_option = ctk.CTkOptionMenu(self.font_frame3, width=200)
+        CTkScrollableDropdownFrame(self.size_option, values=self.sizes, **DROPDOWN,
+                                   command=lambda new_value=self.size_option: self.update_callback(
+                                       key_name="size", value=f"{new_value}"))
+        self.size_option.set(self.loaded_settings["size"])
+
     def status_bar_ui(self):
         self.status_frame = ctk.CTkFrame(self, height=50, corner_radius=0, border_width=0)
         self.status_frame.grid(row=2, column=0, padx=0, pady=0, sticky="ew")
@@ -514,30 +536,18 @@ class WinPad(ctk.CTk):
 
             label1 = ctk.CTkLabel(self.font_frame3, text="Family", font=("", 13))
             label1.grid(row=0, column=0, sticky="w", padx=40, pady=(20, 10))
-            self.family_option = ctk.CTkOptionMenu(self.font_frame3, width=200)
+
             self.family_option.grid(row=0, column=1, sticky="e", padx=40, pady=(20, 10))
-            CTkScrollableDropdownFrame(self.family_option, values=self.fonts, **DROPDOWN,
-                                       command=lambda new_value=self.family_option: self.update_callback(
-                                           key_name="family", value=f"{new_value}"))
-            self.family_option.set(self.loaded_settings["family"].capitalize())
 
             label2 = ctk.CTkLabel(self.font_frame3, text="Style", font=("", 13))
             label2.grid(row=1, column=0, sticky="w", padx=40, pady=10)
-            self.style_option = ctk.CTkOptionMenu(self.font_frame3, width=200)
+
             self.style_option.grid(row=1, column=1, sticky="e", padx=40, pady=10)
-            CTkScrollableDropdownFrame(self.style_option, values=self.styles, **DROPDOWN,
-                                       command=lambda new_value=self.style_option: self.update_callback(
-                                           key_name="style", value=f"{new_value}"))
-            self.style_option.set(self.loaded_settings["style"].capitalize())
 
             label3 = ctk.CTkLabel(self.font_frame3, text="Size", font=("", 13))
             label3.grid(row=2, column=0, sticky="w", padx=40, pady=(10, 20))
-            self.size_option = ctk.CTkOptionMenu(self.font_frame3, width=200)
+
             self.size_option.grid(row=2, column=1, sticky="e", padx=40, pady=(10, 20))
-            CTkScrollableDropdownFrame(self.size_option, values=self.sizes, **DROPDOWN,
-                                       command=lambda new_value=self.size_option: self.update_callback(
-                                           key_name="size", value=f"{new_value}"))
-            self.size_option.set(self.loaded_settings["size"])
 
             label4 = ctk.CTkLabel(self.font_frame3, text="Word Wrap", font=("", 13))
             label4.grid(row=3, column=0, sticky="w", padx=40, pady=(10, 20))
