@@ -7,7 +7,7 @@
 
 ###
 
-<p align="center">A lightweight and user-friendly Notepad clone for Windows, built with CustomTkinter. Experience the familiar functionality of Notepad with a modern touch.</p>
+<p align="center">Microsoft windows notepad clone using customtkinter</p>
 
 ###
 
